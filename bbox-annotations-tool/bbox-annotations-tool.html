@@ -1,0 +1,479 @@
+<!--
+Title: Multi-Image Bbox Labeling Tool for COCO-SSD Annotations (Standalone HTML, MIT License)
+Author: Brad Jackson
+Date: 02/18/2025
+Description:
+  This standalone HTML file demonstrates a multi-image bounding box labeling tool designed specifically for creating annotations for the COCO-SSD model. It supports both image uploads and live webcam capture, enabling users to annotate snapshots in real-time. Although optimized for COCO-SSD annotations, it can be used with any image recognition model.
+
+  Technical highlights:
+  - Asynchronous image processing using offscreen canvases.
+  - Live video stream capture from the webcam.
+  - Dynamic canvas rendering with bounding boxes and labels.
+  - Pagination for managing multiple annotated images.
+  - Built-in editing and deletion of annotations.
+  - Mass export of annotation data as JSON.
+  
+  Gist: https://gist.github.com/iron-hope-shop/65dc0dbc756a10d94167d3a8d4d4ccdb
+
+License: MIT License (included below)
+
+MIT License
+Copyright (c) 2025 Brad Jackson
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+-->
+
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Multi-image Bbox Labeling Tool</title>
+    <!-- Import Noto Sans -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans&display=swap" rel="stylesheet" />
+    <!-- Import Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      body {
+        font-family: 'Noto Sans', sans-serif;
+      }
+    </style>
+  </head>
+  <body class="bg-gray-900 text-gray-100 min-h-screen flex items-center justify-center">
+    <div class="max-w-3xl w-full p-4">
+      <!-- Header & Instructions -->
+      <h1 class="text-3xl font-bold text-center mb-4">
+        Multi-image Bbox Labeling Tool
+      </h1>
+      <p class="mb-4 text-center">
+        Upload an image or use your webcam to capture a snapshot. Draw bounding boxes on the image to label objects. Use the pagination below to navigate between images. You can edit or delete individual annotations and export all data as JSON.
+      </p>
+
+      <!-- Top Controls: Upload & Webcam -->
+      <div class="flex justify-center space-x-4 mb-4">
+        <label class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded cursor-pointer">
+          Upload Image
+          <input type="file" id="uploadImage" accept="image/*" class="hidden" multiple />
+        </label>
+        <button id="toggleWebcam" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded">
+          Toggle Webcam
+        </button>
+        <button id="captureSnapshot" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded hidden">
+          Capture Snapshot
+        </button>
+      </div>
+
+      <!-- Canvas / Video Area -->
+      <div class="flex justify-center mb-4">
+        <canvas id="canvas" class="border border-gray-500" width="640" height="480"></canvas>
+        <video id="video" class="hidden" width="640" height="480" autoplay></video>
+      </div>
+
+      <!-- Annotation Controls -->
+      <div class="flex flex-wrap justify-center items-center space-x-2 mb-4">
+        <input
+          type="text"
+          id="currentLabel"
+          placeholder="Current Label"
+          class="px-3 py-2 rounded border border-gray-600 bg-gray-800 text-gray-100"
+        />
+        <button id="clearAnnotations" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded">
+          Clear Annotations
+        </button>
+        <button id="deleteImage" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded">
+          Delete Image
+        </button>
+        <button id="exportData" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">
+          Export Data
+        </button>
+      </div>
+
+      <!-- Pagination -->
+      <div class="flex justify-center items-center space-x-4 mb-4">
+        <button id="prevImage" class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded">
+          Previous Image
+        </button>
+        <span id="imageCounter">Image: 1 of 1</span>
+        <button id="nextImage" class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded">
+          Next Image
+        </button>
+        <button id="addImage" class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded">
+          Add New Image
+        </button>
+      </div>
+
+      <!-- Annotation List -->
+      <div class="mb-4">
+        <h2 class="text-xl font-bold mb-2">Annotations</h2>
+        <ul id="annotationList" class="space-y-2"></ul>
+      </div>
+
+      <!-- JSON Output Preview -->
+      <pre id="output" class="bg-gray-800 p-4 rounded overflow-auto"></pre>
+    </div>
+
+    <script>
+      (() => {
+        // Array of images; each image has an image object and an array of bounding boxes.
+        // Each bounding box: { x, y, width, height, label }
+        let images = [{ image: null, boxes: [] }];
+        let currentImageIndex = 0;
+        let videoStream = null;
+        let startPoint = null,
+          isDrawing = false,
+          currentPoint = null;
+
+        // Get element references.
+        const canvas = document.getElementById("canvas");
+        const ctx = canvas.getContext("2d");
+        const video = document.getElementById("video");
+        const uploadImageInput = document.getElementById("uploadImage");
+        const toggleWebcamButton = document.getElementById("toggleWebcam");
+        const captureSnapshotButton = document.getElementById("captureSnapshot");
+        const clearAnnotationsButton = document.getElementById("clearAnnotations");
+        const deleteImageButton = document.getElementById("deleteImage");
+        const exportDataButton = document.getElementById("exportData");
+        const prevImageButton = document.getElementById("prevImage");
+        const nextImageButton = document.getElementById("nextImage");
+        const addImageButton = document.getElementById("addImage");
+        const imageCounterSpan = document.getElementById("imageCounter");
+        const currentLabelInput = document.getElementById("currentLabel");
+        const annotationList = document.getElementById("annotationList");
+        const outputPre = document.getElementById("output");
+
+        // Render the canvas: image, drawn boxes, and temporary box if drawing.
+        function renderCanvas() {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          let currentImageObj = images[currentImageIndex];
+          if (currentImageObj.image) {
+            ctx.drawImage(currentImageObj.image, 0, 0, canvas.width, canvas.height);
+          }
+          currentImageObj.boxes.forEach((box) => {
+            ctx.strokeStyle = "red";
+            ctx.lineWidth = 2;
+            ctx.strokeRect(box.x, box.y, box.width, box.height);
+            ctx.fillStyle = "red";
+            ctx.font = "12px 'Noto Sans', sans-serif";
+            ctx.fillText(box.label, box.x, box.y - 5);
+          });
+          if (isDrawing && startPoint && currentPoint) {
+            ctx.strokeStyle = "blue";
+            ctx.lineWidth = 2;
+            let rectX = startPoint.x;
+            let rectY = startPoint.y;
+            let rectWidth = currentPoint.x - startPoint.x;
+            let rectHeight = currentPoint.y - startPoint.y;
+            ctx.strokeRect(rectX, rectY, rectWidth, rectHeight);
+          }
+          updateImageCounter();
+        }
+
+        // Update the pagination text.
+        function updateImageCounter() {
+          imageCounterSpan.textContent = `Image: ${currentImageIndex + 1} of ${images.length}`;
+        }
+
+        // Update the annotation list (with edit and delete buttons).
+        function updateAnnotationList() {
+          annotationList.innerHTML = "";
+          let currentImageObj = images[currentImageIndex];
+          currentImageObj.boxes.forEach((box, index) => {
+            let li = document.createElement("li");
+            li.className = "flex items-center justify-between bg-gray-800 p-2 rounded";
+            li.innerHTML = `<span>${box.label} [${Math.round(
+              box.x
+            )}, ${Math.round(box.y)}, ${Math.round(box.width)}, ${Math.round(
+              box.height
+            )}]</span>
+              <div>
+                <button data-index="${index}" class="editAnnotation bg-yellow-600 hover:bg-yellow-700 text-white px-2 py-1 rounded mr-2">Edit</button>
+                <button data-index="${index}" class="deleteAnnotation bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded">Delete</button>
+              </div>`;
+            annotationList.appendChild(li);
+          });
+        }
+
+        // Update JSON output preview.
+        function updateOutput() {
+          const data = images.map((img) => ({
+            imageData: img.image ? img.image.src : null,
+            boxes: img.boxes.map((box) => ({
+              label: box.label,
+              bbox: [
+                Math.round(box.x),
+                Math.round(box.y),
+                Math.round(box.width),
+                Math.round(box.height),
+              ],
+            })),
+          }));
+          outputPre.textContent = JSON.stringify(data, null, 2);
+        }
+
+        // Process an image to a standard size (default 640x480).
+        function processImage(source, targetWidth = 640, targetHeight = 480) {
+          return new Promise((resolve) => {
+            const offscreenCanvas = document.createElement("canvas");
+            offscreenCanvas.width = targetWidth;
+            offscreenCanvas.height = targetHeight;
+            const offscreenCtx = offscreenCanvas.getContext("2d");
+            offscreenCtx.drawImage(
+              source,
+              0,
+              0,
+              source.width,
+              source.height,
+              0,
+              0,
+              targetWidth,
+              targetHeight
+            );
+            const processedImage = new Image();
+            processedImage.onload = () => resolve(processedImage);
+            processedImage.src = offscreenCanvas.toDataURL("image/jpeg");
+          });
+        }
+
+        // Update the current image with a processed source.
+        function updateCurrentImage(source) {
+          processImage(source).then((processedImage) => {
+            canvas.width = processedImage.width;
+            canvas.height = processedImage.height;
+            images[currentImageIndex].image = processedImage;
+            renderCanvas();
+            updateAnnotationList();
+            updateOutput();
+          });
+        }
+
+        // --- Event Listeners ---
+
+        // Upload Image.
+        uploadImageInput.addEventListener("change", (event) => {
+          const files = event.target.files;
+          for (let i = 0; i < files.length; i++) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+              const img = new Image();
+              img.onload = () => {
+                processImage(img).then((processedImage) => {
+                  images.push({ image: processedImage, boxes: [] });
+                  currentImageIndex = images.length - 1;
+                  canvas.width = processedImage.width;
+                  canvas.height = processedImage.height;
+                  renderCanvas();
+                  updateAnnotationList();
+                  updateOutput();
+                });
+              };
+              img.src = e.target.result;
+            };
+            reader.readAsDataURL(files[i]);
+          }
+        });
+
+        // Toggle Webcam.
+        toggleWebcamButton.addEventListener("click", () => {
+          if (videoStream) {
+            videoStream.getTracks().forEach((track) => track.stop());
+            videoStream = null;
+            video.classList.add("hidden");
+            canvas.classList.remove("hidden");
+            captureSnapshotButton.classList.add("hidden");
+          } else {
+            navigator.mediaDevices
+              .getUserMedia({ video: true })
+              .then((stream) => {
+                videoStream = stream;
+                video.srcObject = stream;
+                video.classList.remove("hidden");
+                canvas.classList.add("hidden");
+                captureSnapshotButton.classList.remove("hidden");
+              })
+              .catch((error) => {
+                console.error("Error accessing webcam:", error);
+              });
+          }
+        });
+
+        // Capture Snapshot from webcam.
+        captureSnapshotButton.addEventListener("click", () => {
+          canvas.classList.remove("hidden");
+          video.classList.add("hidden");
+          // Draw video frame onto canvas.
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          updateCurrentImage(canvas);
+          renderCanvas();
+          updateAnnotationList();
+          updateOutput();
+        });
+
+        // Clear annotations for current image.
+        clearAnnotationsButton.addEventListener("click", () => {
+          images[currentImageIndex].boxes = [];
+          renderCanvas();
+          updateAnnotationList();
+          updateOutput();
+        });
+
+        // Delete current image.
+        deleteImageButton.addEventListener("click", () => {
+          if (images.length > 1) {
+            images.splice(currentImageIndex, 1);
+            currentImageIndex = Math.max(0, currentImageIndex - 1);
+            renderCanvas();
+            updateAnnotationList();
+            updateOutput();
+            updateImageCounter();
+          } else {
+            images[0] = { image: null, boxes: [] };
+            renderCanvas();
+            updateAnnotationList();
+            updateOutput();
+            updateImageCounter();
+          }
+        });
+
+        // Export all data as JSON.
+        exportDataButton.addEventListener("click", () => {
+          const exportData = {
+            images: images.map((img) => ({
+              imageData: img.image ? img.image.src : null,
+              boxes: img.boxes.map((box) => ({
+                label: box.label,
+                bbox: [
+                  Math.round(box.x),
+                  Math.round(box.y),
+                  Math.round(box.width),
+                  Math.round(box.height),
+                ],
+              })),
+            })),
+          };
+          const jsonString = JSON.stringify(exportData, null, 2);
+          const blob = new Blob([jsonString], { type: "application/json" });
+          const url = URL.createObjectURL(blob);
+          const downloadLink = document.createElement("a");
+          downloadLink.href = url;
+          downloadLink.download = "annotations.json";
+          downloadLink.click();
+          URL.revokeObjectURL(url);
+        });
+
+        // Pagination controls.
+        prevImageButton.addEventListener("click", () => {
+          if (currentImageIndex > 0) {
+            currentImageIndex--;
+            renderCanvas();
+            updateAnnotationList();
+            updateOutput();
+            updateImageCounter();
+          }
+        });
+        nextImageButton.addEventListener("click", () => {
+          if (currentImageIndex < images.length - 1) {
+            currentImageIndex++;
+            renderCanvas();
+            updateAnnotationList();
+            updateOutput();
+            updateImageCounter();
+          }
+        });
+        addImageButton.addEventListener("click", () => {
+          images.push({ image: null, boxes: [] });
+          currentImageIndex = images.length - 1;
+          renderCanvas();
+          updateAnnotationList();
+          updateOutput();
+          updateImageCounter();
+        });
+
+        // Canvas drawing for bounding boxes.
+        canvas.addEventListener("mousedown", (event) => {
+          const rect = canvas.getBoundingClientRect();
+          startPoint = {
+            x: event.clientX - rect.left,
+            y: event.clientY - rect.top,
+          };
+          isDrawing = true;
+          currentPoint = { ...startPoint };
+          renderCanvas();
+        });
+        canvas.addEventListener("mousemove", (event) => {
+          if (isDrawing) {
+            const rect = canvas.getBoundingClientRect();
+            currentPoint = {
+              x: event.clientX - rect.left,
+              y: event.clientY - rect.top,
+            };
+            renderCanvas();
+          }
+        });
+        canvas.addEventListener("mouseup", () => {
+          if (isDrawing && startPoint && currentPoint) {
+            const boxX = Math.min(startPoint.x, currentPoint.x);
+            const boxY = Math.min(startPoint.y, currentPoint.y);
+            const boxWidth = Math.abs(currentPoint.x - startPoint.x);
+            const boxHeight = Math.abs(currentPoint.y - startPoint.y);
+            images[currentImageIndex].boxes.push({
+              x: boxX,
+              y: boxY,
+              width: boxWidth,
+              height: boxHeight,
+              label: currentLabelInput.value || "unlabeled",
+            });
+            isDrawing = false;
+            startPoint = null;
+            currentPoint = null;
+            renderCanvas();
+            updateAnnotationList();
+            updateOutput();
+          }
+        });
+
+        // Annotation list: delete and edit buttons.
+        annotationList.addEventListener("click", (event) => {
+          const target = event.target;
+          if (target.classList.contains("deleteAnnotation")) {
+            const index = parseInt(target.getAttribute("data-index"));
+            images[currentImageIndex].boxes.splice(index, 1);
+            renderCanvas();
+            updateAnnotationList();
+            updateOutput();
+          } else if (target.classList.contains("editAnnotation")) {
+            const index = parseInt(target.getAttribute("data-index"));
+            const currentLabel = images[currentImageIndex].boxes[index].label;
+            const newLabel = prompt("Edit label:", currentLabel);
+            if (newLabel !== null) {
+              images[currentImageIndex].boxes[index].label = newLabel;
+              renderCanvas();
+              updateAnnotationList();
+              updateOutput();
+            }
+          }
+        });
+
+        // Initial render.
+        renderCanvas();
+        updateAnnotationList();
+        updateOutput();
+        updateImageCounter();
+      })();
+    </script>
+  </body>
+</html>

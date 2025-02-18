@@ -1,0 +1,225 @@
+<!-- See below for header -->
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DNA Reannealing Loader</title>
+    <!-- Import React and ReactDOM from CDN -->
+    <script crossorigin src="https://unpkg.com/react@17/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
+    <!-- Import Babel for JSX transformation -->
+    <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+    <!-- Import GSAP (optional, for additional animations if needed) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <style>
+      /* Global styles for dark mode and centered content */
+      body {
+        margin: 0;
+        padding: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        background-color: #0a192f;
+        font-family: Arial, sans-serif;
+      }
+      /* Loader container styles */
+      .loader-container {
+        width: 300px;
+        height: 400px;
+        position: relative;
+        overflow: hidden;
+        border-radius: 10px;
+      }
+      /* Ensure the canvas covers the entire container */
+      canvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Root container for our React component -->
+    <div id="root"></div>
+
+    <script type="text/babel">
+      /*
+      Title: DNA Annealing Loader React Component
+      Author: Brad Jackson
+      Date: 02/18/2025
+      Description:
+        This React component renders a refined DNA annealing loading screen using the Canvas API.
+        The animation simulates the reannealing of DNA strands with dynamic color transitions and a loading indicator.
+        Originally designed as a loading screen for applications utilizing COCO-SSD annotations,
+        this component can be integrated into any React project. It leverages requestAnimationFrame
+        for smooth animation rendering.
+        
+      > Make an HTML file with this code and open it in a browser to see the animation.
+      OR
+      > See it in action here: 
+      
+      Gist: https://gist.github.com/iron-hope-shop/8df12691a7dff22cf7b518328c038835
+      
+
+      How to Use:
+        - Include this component in your React project.
+        - Render <DnaAnnealingLoader /> where you want the loading animation to appear.
+        - This file (dna-reannealing.html) demonstrates embedding the component directly in an HTML file.
+      */
+
+      function DnaAnnealingLoader() {
+        // Create a ref to reference the canvas element
+        const canvasRef = React.useRef(null);
+
+        React.useEffect(() => {
+          const canvas = canvasRef.current;
+          if (!canvas) return;
+          const ctx = canvas.getContext('2d');
+
+          // Set canvas dimensions
+          canvas.width = 300;
+          canvas.height = 400;
+          const { width, height } = canvas;
+
+          // Define constants for DNA drawing
+          const baseColors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A'];
+          const basePairs = 20;
+          let progress = 0;
+          let stage = 0; // 0: undulate in, 1: anneal, 2: fade out
+
+          // Function to draw each frame of the DNA animation
+          function drawDNA(time) {
+            // Clear the canvas
+            ctx.clearRect(0, 0, width, height);
+
+            const centerX = width / 2;
+            const startY = height * 0.1;
+            const endY = height * 0.9;
+            const dnaHeight = endY - startY;
+            const baseSpacing = dnaHeight / (basePairs - 1);
+
+            // Set global transparency during fade-out stage
+            ctx.globalAlpha = stage === 2 ? 1 - progress : 1;
+
+            // Loop over each base pair to draw strands and connecting lines
+            for (let i = 0; i < basePairs; i++) {
+              const y = startY + i * baseSpacing;
+              const angle = (i / basePairs) * Math.PI * 2 + time;
+              const xOffset = Math.sin(angle) * 40;
+              const yOffset = Math.cos(angle) * 5;
+
+              // Calculate appearance progress for staggered animation
+              let appearProgress = stage === 0 ? progress * basePairs - i : 1;
+              appearProgress = Math.max(0, Math.min(1, appearProgress));
+
+              // Determine if the base pair is "zipped" (annealed)
+              const isZipped = stage === 1 ? y < startY + progress * dnaHeight : stage === 2;
+              const zipOffset = isZipped ? 0 : 20;
+
+              // Draw left strand base
+              ctx.beginPath();
+              ctx.arc(centerX - xOffset * appearProgress - zipOffset, y + yOffset, 6 * appearProgress, 0, Math.PI * 2);
+              ctx.fillStyle = baseColors[i % 4];
+              ctx.fill();
+
+              // Draw right strand base
+              ctx.beginPath();
+              ctx.arc(centerX + xOffset * appearProgress + zipOffset, y + yOffset, 6 * appearProgress, 0, Math.PI * 2);
+              ctx.fillStyle = baseColors[(i + 2) % 4];
+              ctx.fill();
+
+              // Draw connecting line for zipped pairs or during fade out
+              if (isZipped) {
+                ctx.beginPath();
+                ctx.moveTo(centerX - xOffset, y + yOffset);
+                ctx.lineTo(centerX + xOffset, y + yOffset);
+                ctx.strokeStyle = 'rgba(100, 255, 218, 0.5)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+              }
+            }
+
+            // Draw left backbone of the DNA
+            ctx.beginPath();
+            for (let i = 0; i < basePairs; i++) {
+              const y = startY + i * baseSpacing;
+              const angle = (i / basePairs) * Math.PI * 2 + time;
+              const xOffset = Math.sin(angle) * 40;
+              const yOffset = Math.cos(angle) * 5;
+              const zipOffset = (stage === 1 && y < startY + progress * dnaHeight) || stage === 2 ? 0 : 20;
+              
+              let appearProgress = stage === 0 ? progress * basePairs - i : 1;
+              appearProgress = Math.max(0, Math.min(1, appearProgress));
+              
+              if (i === 0) {
+                ctx.moveTo(centerX - xOffset * appearProgress - zipOffset, y + yOffset);
+              } else {
+                ctx.lineTo(centerX - xOffset * appearProgress - zipOffset, y + yOffset);
+              }
+            }
+            ctx.strokeStyle = 'rgba(255, 107, 107, 0.8)';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            // Draw right backbone of the DNA
+            ctx.beginPath();
+            for (let i = 0; i < basePairs; i++) {
+              const y = startY + i * baseSpacing;
+              const angle = (i / basePairs) * Math.PI * 2 + time;
+              const xOffset = Math.sin(angle) * 40;
+              const yOffset = Math.cos(angle) * 5;
+              const zipOffset = (stage === 1 && y < startY + progress * dnaHeight) || stage === 2 ? 0 : 20;
+              
+              let appearProgress = stage === 0 ? progress * basePairs - i : 1;
+              appearProgress = Math.max(0, Math.min(1, appearProgress));
+              
+              if (i === 0) {
+                ctx.moveTo(centerX + xOffset * appearProgress + zipOffset, y + yOffset);
+              } else {
+                ctx.lineTo(centerX + xOffset * appearProgress + zipOffset, y + yOffset);
+              }
+            }
+            ctx.strokeStyle = 'rgba(78, 205, 196, 0.8)';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            // Draw loading text with percentage indicator
+            ctx.globalAlpha = 1;
+            ctx.fillStyle = '#64ffda';
+            ctx.font = '20px Arial';
+            ctx.textAlign = 'center';
+            let loadingPercentage = Math.floor((stage * 100 + progress * 100) / 3);
+            ctx.fillText(`LOADING... ${loadingPercentage}%`, width / 2, height - 10);
+
+            // Update progress and manage animation stage transitions
+            progress += 0.005;
+            if (progress > 1) {
+              progress = 0;
+              stage++;
+              if (stage > 2) stage = 0;
+            }
+
+            // Request the next animation frame with an updated time parameter
+            requestAnimationFrame(() => drawDNA(time + 0.02));
+          }
+
+          // Initiate the DNA animation
+          drawDNA(0);
+        }, []);
+
+        // Render the canvas within a container div
+        return (
+          <div className="loader-container">
+            <canvas ref={canvasRef} />
+          </div>
+        );
+      }
+
+      // Mount the DnaAnnealingLoader component into the DOM element with id 'root'
+      ReactDOM.render(<DnaAnnealingLoader />, document.getElementById('root'));
+    </script>
+  </body>
+</html>
