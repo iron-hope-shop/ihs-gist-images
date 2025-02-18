@@ -29,7 +29,8 @@ How to Run:
     4. Run the script:
          python video_frame_counter.py
 
-> See it in action here: https://github.com/iron-hope-shop/ihs-gist-images/blob/main/video-count-frame/video_count_frame.png
+Demo:
+- See it in action here: https://github.com/iron-hope-shop/ihs-gist-images/blob/main/video-count-frame/video_count_frame.png
 
 Gist: https://gist.github.com/iron-hope-shop/4dee2bc66267c170deddbbc8b639e84d
 

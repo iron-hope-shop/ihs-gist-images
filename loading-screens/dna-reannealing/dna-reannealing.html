@@ -1,4 +1,48 @@
-<!-- See below for header -->
+<!--
+
+Title: DNA Annealing Loader React Component (MIT License)
+Author: Brad Jackson
+Date: 02/18/2025
+Description:
+  This React component renders a refined DNA annealing loading screen using the Canvas API.
+  The animation simulates the reannealing of DNA strands with dynamic color transitions and a loading indicator.
+  Originally designed as a loading screen for applications utilizing COCO-SSD annotations,
+  this component can be integrated into any React project. It leverages requestAnimationFrame
+  for smooth animation rendering.
+
+How to Use:
+  - Include this component in your React project Make sure to add css to app.css or index.css.
+  - Render <DnaAnnealingLoader /> where you want the loading animation to appear.
+  - This file (dna-reannealing.html) demonstrates embedding the component directly in an HTML file.
+
+Demo:
+- See it in action here: https://github.com/iron-hope-shop/ihs-gist-images/blob/main/loading-screens/dna-reannealing/dna-reannealing.gif
+- Make an HTML file with this code and open it in a browser to see the animation.
+
+Gist: https://gist.github.com/iron-hope-shop/8df12691a7dff22cf7b518328c038835
+
+MIT License
+Copyright (c) 2025 Brad Jackson
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+-->
 
 <!DOCTYPE html>
 <html lang="en">
@@ -46,49 +90,6 @@
     <div id="root"></div>
 
     <script type="text/babel">
-      /*
-      Title: DNA Annealing Loader React Component (MIT License)
-      Author: Brad Jackson
-      Date: 02/18/2025
-      Description:
-        This React component renders a refined DNA annealing loading screen using the Canvas API.
-        The animation simulates the reannealing of DNA strands with dynamic color transitions and a loading indicator.
-        Originally designed as a loading screen for applications utilizing COCO-SSD annotations,
-        this component can be integrated into any React project. It leverages requestAnimationFrame
-        for smooth animation rendering.
-
-      How to Use:
-        - Include this component in your React project.
-        - Render <DnaAnnealingLoader /> where you want the loading animation to appear.
-        - This file (dna-reannealing.html) demonstrates embedding the component directly in an HTML file.
-      
-      > Make an HTML file with this code and open it in a browser to see the animation.
-      OR
-      > See it in action here: 
-
-      Gist: https://gist.github.com/iron-hope-shop/8df12691a7dff22cf7b518328c038835
-
-      MIT License
-      Copyright (c) 2025 Brad Jackson
-
-      Permission is hereby granted, free of charge, to any person obtaining a copy
-      of this software and associated documentation files (the "Software"), to deal
-      in the Software without restriction, including without limitation the rights
-      to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-      copies of the Software, and to permit persons to whom the Software is
-      furnished to do so, subject to the following conditions:
-
-      The above copyright notice and this permission notice shall be included in all
-      copies or substantial portions of the Software.
-
-      THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-      IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-      FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-      AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-      LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-      OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-      SOFTWARE.
-      */
 
       function DnaAnnealingLoader() {
         // Create a ref to reference the canvas element
