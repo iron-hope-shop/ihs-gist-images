@@ -29,9 +29,9 @@ How to Run:
     4. Run the script:
          python video_frame_counter.py
 
-    Gist: https://gist.github.com/iron-hope-shop/4dee2bc66267c170deddbbc8b639e84d
+> See it in action here: https://github.com/iron-hope-shop/ihs-gist-images/blob/main/video-count-frame/video_count_frame.png
 
-License: MIT License
+Gist: https://gist.github.com/iron-hope-shop/4dee2bc66267c170deddbbc8b639e84d
 
 MIT License
 Copyright (c) 2025 Brad Jackson
@@ -42,8 +42,10 @@ in the Software without restriction, including without limitation the rights
 to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 copies of the Software, and to permit persons to whom the Software is
 furnished to do so, subject to the following conditions:
+
 The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
+
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
