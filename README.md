@@ -1,3 +1,4 @@
+![Project Logo](./logo.png)
 
 # Demos
 <!--
