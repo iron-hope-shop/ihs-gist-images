@@ -1,5 +1,5 @@
 """
-Title: Video Frame Counter for Texture Animations in Blender
+Title: Video Frame Counter for Texture Animations in Blender (MIT License)
 Author: Brad Jackson
 Date: 02/18/2025
 Description:
