@@ -1,0 +1,248 @@
+<!--
+Title: COCO Real-Time Object Detection (Standalone HTML, MIT License)
+Author: Brad Jackson
+Date: 02/17/2025
+Description:
+  This standalone HTML file demonstrates real-time object detection using TensorFlow.js 
+  and the COCO-SSD model. Designed to be opened directly in Chrome showcasing live video capture, asynchronous model loading, 
+  and highlighting of detection results.
+  
+  Technical highlights:
+  - Asynchronous model loading using async/await.
+  - Live video stream capture from the rear-facing camera.
+  - Dynamic canvas rendering with bounding boxes and labels.
+  - Clean, modular code for ease of maintenance and extension.
+
+  Gist: https://gist.github.com/iron-hope-shop/2b1e80f28388768924f77c3ab8e0fb4c
+
+License: MIT License (included below)
+  
+MIT License
+
+Copyright (c) 2025 Brad Jackson
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>COCO Real-Time Object Detection</title>
+    <!-- Load TensorFlow.js -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <!-- Load COCO-SSD model -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        background: #000;
+        overflow: hidden;
+      }
+      /* Container fills the window */
+      #container {
+        position: relative;
+        width: 100%;
+        height: 100%;
+      }
+      /* Hide the video element (we use it only for processing) */
+      #video {
+        display: none;
+      }
+      /* Canvas is centered in the container */
+      #output {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: #000;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="container">
+      <!-- Hidden video element for capturing the stream -->
+      <video id="video"></video>
+      <!-- Canvas for drawing video and detections -->
+      <canvas id="output"></canvas>
+    </div>
+
+    <script>
+      const video = document.getElementById("video");
+      const canvas = document.getElementById("output");
+      const ctx = canvas.getContext("2d");
+
+      let model; // COCO-SSD model instance
+      let videoWidth, videoHeight;
+      // Keep track of detected objects so that nearby boxes reuse the same color
+      let trackedObjects = [];
+
+      // Generate a random RGB color string
+      function getRandomColor() {
+        const r = Math.floor(Math.random() * 256);
+        const g = Math.floor(Math.random() * 256);
+        const b = Math.floor(Math.random() * 256);
+        return `rgb(${r}, ${g}, ${b})`;
+      }
+
+      // Resize the canvas to a 16:9 rectangle that fits within the window
+      function resizeCanvas() {
+        const windowWidth = window.innerWidth;
+        const windowHeight = window.innerHeight;
+        const aspect = 16 / 9;
+        let canvasWidth, canvasHeight;
+        if (windowWidth / windowHeight > aspect) {
+          // Window is wider than 16:9, so limit by height
+          canvasHeight = windowHeight;
+          canvasWidth = canvasHeight * aspect;
+        } else {
+          // Window is taller, so limit by width
+          canvasWidth = windowWidth;
+          canvasHeight = canvasWidth / aspect;
+        }
+        canvas.width = canvasWidth;
+        canvas.height = canvasHeight;
+      }
+      window.addEventListener("resize", resizeCanvas);
+
+      // Update tracked objects so that detections close to previous ones reuse the same color
+      function updateTrackedObjects(predictions) {
+        const updatedTracked = [];
+        predictions.forEach((prediction) => {
+          const [x, y, w, h] = prediction.bbox;
+          const centerX = x + w / 2;
+          const centerY = y + h / 2;
+          // Look for a tracked object with a similar center (threshold = 30 pixels)
+          let match = trackedObjects.find((obj) => {
+            const objCenterX = obj.x + obj.w / 2;
+            const objCenterY = obj.y + obj.h / 2;
+            return Math.hypot(centerX - objCenterX, centerY - objCenterY) < 30;
+          });
+          if (match) {
+            // Update tracked object's bbox and detection info
+            match.x = x;
+            match.y = y;
+            match.w = w;
+            match.h = h;
+            match.class = prediction.class;
+            match.score = prediction.score;
+            updatedTracked.push(match);
+          } else {
+            // New detection: assign a random color -- experimental/buggy
+            updatedTracked.push({
+              x,
+              y,
+              w,
+              h,
+              class: prediction.class,
+              score: prediction.score,
+              // If the random colors are going crazy, make this a single color
+              color: getRandomColor()
+            });
+          }
+        });
+        trackedObjects = updatedTracked;
+        return trackedObjects;
+      }
+
+      // Asynchronously load the model and initialize the video stream
+      (async function init() {
+        try {
+          model = await cocoSsd.load();
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: "environment" },
+            audio: false
+          });
+          video.srcObject = stream;
+          video.onloadedmetadata = () => {
+            video.play();
+            // Save intrinsic video dimensions
+            videoWidth = video.videoWidth;
+            videoHeight = video.videoHeight;
+            resizeCanvas();
+            detectFrame();
+          };
+        } catch (err) {
+          console.error("Error during initialization:", err);
+        }
+      })();
+
+      // Continuously process the video stream for object detection
+      function detectFrame() {
+        model.detect(video).then((predictions) => {
+          renderPredictions(predictions);
+          requestAnimationFrame(detectFrame);
+        });
+      }
+
+      // Render the video (letterboxed to preserve its aspect ratio) and overlay detection boxes & labels
+      function renderPredictions(predictions) {
+        // Calculate parameters to letterbox the video inside the 16:9 canvas
+        let drawWidth, drawHeight, dx, dy;
+        const videoAspect = videoWidth / videoHeight;
+        const canvasAspect = canvas.width / canvas.height;
+        if (canvasAspect > videoAspect) {
+          // Canvas is wider than the video aspect ratio: limit by height
+          drawHeight = canvas.height;
+          drawWidth = drawHeight * videoAspect;
+        } else {
+          // Canvas is narrower: limit by width
+          drawWidth = canvas.width;
+          drawHeight = drawWidth / videoAspect;
+        }
+        // Center the video frame within the canvas
+        dx = (canvas.width - drawWidth) / 2;
+        dy = (canvas.height - drawHeight) / 2;
+        // Scale factors from video to drawn image dimensions
+        const scaleX = drawWidth / videoWidth;
+        const scaleY = drawHeight / videoHeight;
+
+        // Clear the canvas and draw the video frame
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(video, dx, dy, drawWidth, drawHeight);
+
+        // Update tracked objects so that boxes for the same object retain their color
+        const objectsToDraw = updateTrackedObjects(predictions);
+        objectsToDraw.forEach((obj) => {
+          // Map detection coordinates (from video space) to canvas space using our computed scale and offset
+          const newX = dx + obj.x * scaleX;
+          const newY = dy + obj.y * scaleY;
+          const newW = obj.w * scaleX;
+          const newH = obj.h * scaleY;
+
+          // Draw bounding box
+          ctx.strokeStyle = obj.color;
+          ctx.lineWidth = 4;
+          ctx.strokeRect(newX, newY, newW, newH);
+
+          // Draw label with class and confidence score
+          const label = `${obj.class} ${Math.round(obj.score * 100)}%`;
+          ctx.fillStyle = obj.color;
+          ctx.font = "18px Arial";
+          ctx.fillText(label, newX, newY > 20 ? newY - 5 : 10);
+        });
+      }
+    </script>
+  </body>
+</html>
