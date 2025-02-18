@@ -1,2 +1,1 @@
-# ihs-gist-images
-visuals for gists, i will post the gist like here and the..here link... there...
+visuals for gists I will provide the Gist link and a backlink to an image, video, or gif demo
