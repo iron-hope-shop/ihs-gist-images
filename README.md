@@ -1,4 +1,11 @@
-#
+
+# Loading Screen React Components
+<!--
+- TODO need to add metadata to loading screens
+- TODO update gists
+- TODO update readme
+- TODO update profile readme
+-->
 
 ## [COCO Real-Time Object Detection (Standalone HTML, MIT License)](https://gist.github.com/iron-hope-shop/2b1e80f28388768924f77c3ab8e0fb4c)
 
